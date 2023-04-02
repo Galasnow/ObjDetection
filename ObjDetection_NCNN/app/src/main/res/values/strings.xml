@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">ObjDetection</string>
+    <string name="app_title">ObjDetection</string>
+    <string name="warning">Warning</string>
+    <string name="setting">Setting</string>
+    <string name="NanoDet_Plus">NanoDet-Plus</string>
+    <string name="YOLOv5s">YOLOv5s</string>
+    <string name="photo">Photo</string>
+    <string name="nms">NMS</string>
+    <string name="threshold">Threshold</string>
+    <string name="thr_nms">THR:-.--,NMS:-.--</string>
+    <string name="video">Video</string>
+    <string name="please_wait">Please wait...</string>
+    <string name="back">Back</string>
+    <string name="imageView">detection result</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+
+    <string name="version">Version</string>
+    <string name="version_summary">v1.0.1</string>
+
+    <string name="about">About</string>
+
+    <!-- Preference Titles -->
+    <string name="main_header">Main</string>
+    <string name="other_header">Other</string>
+
+
+
+</resources>
