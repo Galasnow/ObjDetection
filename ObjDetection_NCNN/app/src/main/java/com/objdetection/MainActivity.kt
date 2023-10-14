@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.database.Cursor
 import android.graphics.*
 import android.net.Uri
@@ -21,6 +20,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.core.resolutionselector.ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
@@ -87,6 +89,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mPreview: Preview
     private var mImageCapture: ImageCapture? = null
     private var mImageAnalysis: ImageAnalysis? = null
+    private lateinit var mResolutionSelector: ResolutionSelector
     private var cameraExecutor = Executors.newSingleThreadExecutor()
    // private val currentExecutor = Executors.newFixedThreadPool(2)
   //  private var analyzing = true
@@ -373,21 +376,18 @@ class MainActivity : AppCompatActivity() {
         mPreview = previewBuilder.build()
 
         mImageCapture = captureBuilder.build()
-        //获取屏幕旋转方向
-        val orientation = resources.configuration.orientation
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {   //横屏
-            targetWidth = 640
-            targetHeight = 480
-        } else if (orientation == Configuration.ORIENTATION_PORTRAIT) { //竖屏
-            targetWidth = 480
-            targetHeight = 640
-        }
+
+        targetWidth = 640
+        targetHeight = 480
+        val resolutionSelector = ResolutionSelector.Builder()
+            .setResolutionStrategy(ResolutionStrategy(Size(targetWidth, targetHeight), FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
+        mResolutionSelector = resolutionSelector.build()
+
         mImageAnalysis = ImageAnalysis.Builder()
             // enable the following line if RGBA output is needed.
             // .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .setTargetRotation(previewView.display.rotation)
-
-            .setTargetResolution(Size(targetWidth, targetHeight))
+            .setResolutionSelector(mResolutionSelector)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
 
