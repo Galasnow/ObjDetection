@@ -78,8 +78,8 @@ class MainActivity : AppCompatActivity() {
 //    private var Time2: Long = 0
 //    private var Time3: Long = 0
 
-    private var totalFPS = 0.0
-    private var FPSCount = 0.0
+    private var totalFPS = 0.0f
+    private var FPSCount = 0
 
     private var mutableBitmap: Bitmap? = null
 //    private var mReusableBitmap: Bitmap? = null
@@ -497,19 +497,17 @@ class MainActivity : AppCompatActivity() {
 
             endTime = System.currentTimeMillis()
             val dur = endTime - startTime
-            if(dur > 1)               //排除帧率过高的异常
-            {
-                Log.d(TAG, "dur time is: $dur")
-                val fps = (1000.0 / dur).toFloat()
-                //更新API后，有时fps为Infinity，正在debug
 
-                totalFPS = if (totalFPS == 0.0) fps.toDouble() else totalFPS + fps
+            if(errorFlag == 1 && dur > 1) {
+//                Log.d(TAG, "dur time is: $dur")
+                val fps = 1000.0f / dur
+                totalFPS += fps
                 FPSCount++
                 val modelName: String = getModelName()
                 binding.tvInfo.text = String.format(
                     Locale.CHINESE,
                     "%s\nSize: %dx%d\nTime: %.3f s\nFPS: %.3f\nAVG_FPS: %.3f",
-                    modelName, height, width, dur / 1000.0, fps, totalFPS.toFloat() / FPSCount
+                    modelName, height, width, dur / 1000.0f, fps, totalFPS / FPSCount
                 )
             }
         }
@@ -629,7 +627,7 @@ class MainActivity : AppCompatActivity() {
                 binding.imageView.setImageBitmap(mutableBitmap)
                 binding.tvInfo.text = String.format(
                     Locale.CHINESE, "%s\nSize: %dx%d\nTime: %.3f s\nFPS: %.3f",
-                    modelName, height, width, dur / 1000.0, 1000.0f / dur
+                    modelName, height, width, dur / 1000.0f, 1000.0f / dur
                 )
             }
         }, "photo detect")
