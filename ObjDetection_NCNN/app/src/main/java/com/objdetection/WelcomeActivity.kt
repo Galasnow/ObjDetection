@@ -33,11 +33,6 @@ class WelcomeActivity : AppCompatActivity() {
             this@WelcomeActivity.startActivity(intent)
         }
 
-//        binding.settingButton1.setOnClickListener {
-//            val intent = Intent(this@WelcomeActivity, SettingsActivity::class.java)
-//            this@WelcomeActivity.startActivity(intent)
-//        }
-
         binding.tbUseGpu.setOnCheckedChangeListener{_, isChecked ->
             useGPU = isChecked
             if (useGPU) {

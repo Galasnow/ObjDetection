@@ -171,7 +171,7 @@ static void nms_sorted_bboxes(const std::vector<BoxInfo>& faceobjects, std::vect
 
 static inline float sigmoid(float x)
 {
-    return 1.0f / (1.0f + exp(-x));
+    return 1.0f / (1.0f + expf(-x));
 }
 
 static void generate_proposals(const ncnn::Mat& pred, int stride, const ncnn::Mat& in_pad, float prob_threshold, std::vector<BoxInfo>& objects)

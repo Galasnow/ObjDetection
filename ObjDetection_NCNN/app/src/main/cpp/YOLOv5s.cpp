@@ -61,7 +61,7 @@ YOLOv5s::~YOLOv5s() {
 
 static inline float sigmoid(float x)
 {
-    return static_cast<float>(1.f / (1.f + exp(-x)));
+    return static_cast<float>(1.f / (1.f + expf(-x)));
 }
 
 static inline float intersection_area(const BoxInfo& a, const BoxInfo& b)

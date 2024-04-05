@@ -6,7 +6,14 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.database.Cursor
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,7 +26,11 @@ import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.core.resolutionselector.ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
@@ -33,14 +44,10 @@ import com.objdetection.databinding.ActivityMainBinding
 import wseemann.media.FFmpegMediaMetadataRetriever
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.util.*
+import java.util.Locale
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-
-
-//******ImageAnalysis Function Test******//
-//typealias LumaListener = (luma: Double) -> Unit
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -84,18 +91,13 @@ class MainActivity : AppCompatActivity() {
     private var mutableBitmap: Bitmap? = null
 //    private var mReusableBitmap: Bitmap? = null
     private var detectService = Executors.newSingleThreadExecutor()
-//    private lateinit var detectService : ExecutorService
     private lateinit var mCameraProvider: ProcessCameraProvider
     private lateinit var mPreview: Preview
-    private var mImageCapture: ImageCapture? = null
-    private var mImageAnalysis: ImageAnalysis? = null
+    private lateinit var mImageCapture: ImageCapture
+    private lateinit var mImageAnalysis: ImageAnalysis
     private lateinit var mResolutionSelector: ResolutionSelector
     private var cameraExecutor = Executors.newSingleThreadExecutor()
-   // private val currentExecutor = Executors.newFixedThreadPool(2)
-  //  private var analyzing = true
-    // Analyzer implementation
-  //  private var mAnalyzer: ImageAnalysis.Analyzer? = null
-
+//    private var analyzing = true
 //    private var pauseAnalysis = false
 
     private var mmr: FFmpegMediaMetadataRetriever? = null
@@ -105,17 +107,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //视图绑定
+        // View binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        //获取开始界面传送的是否使用GPU和使用模型类型的信息
+        // Get the information of using of GPU and model
         val intent = intent
         useGPU = intent.getBooleanExtra("useGPU", false)
         useModel = intent.getIntExtra("useModel", NANODET)
 
-        //request permissions
-        if (Build.VERSION.SDK_INT >= 33) {      //Android 13 support
+        // Request permissions
+        if (Build.VERSION.SDK_INT >= 33) {      // Android 13 support
             val permissionList = arrayOfNulls<String>(3)
             permissionList[0] = Manifest.permission.READ_MEDIA_IMAGES //图片
             permissionList[1] = Manifest.permission.READ_MEDIA_VIDEO //视频
@@ -133,13 +135,11 @@ class MainActivity : AppCompatActivity() {
         initViewListener()
 
         val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
-//        println(prefs.getString("numThreads", "<unset>")) //<unset>表示没有查到numThreads这个key的返回值
-        //number of threads in CPU Mode
+        // Number of threads in CPU Mode
         threadsNumber = prefs.getString("numThreads", "0")?.toInt()!!
-//        Log.d(TAG, "numThreads: $threadsNumber")
 
-        //replace StartActivityForResult()
-        //选取图片
+        // Replace StartActivityForResult()
+        // Select picture
         val photoActivity =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                 if (it.data != null && it.resultCode == Activity.RESULT_OK) {
@@ -179,8 +179,8 @@ class MainActivity : AppCompatActivity() {
                     if (Build.VERSION.SDK_INT >= 33)
                         Intent("android.provider.action.PICK_IMAGES")
                         /**
-                        * 设置选择照片的个数,默认1张时可不添加该属性,大于1的时候再设置.
-                        * 可指定图片数量上限为最大数字,调用 MediaStore.getPickImagesMaxLimit().
+                        * set the number of selected images (when > 1)
+                        * set the max number use " MediaStore.getPickImagesMaxLimit(). "
                         */
                         //intent.putExtra("android.provider.extra.PICK_IMAGES_MAX", MediaStore.getPickImagesMaxLimit());
                     else
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        //选取视频
+        // Select video
         val videoActivity =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                 if (it.data != null && it.resultCode == Activity.RESULT_OK) {
@@ -239,14 +239,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    //初始化选取的模型
+    // Init the model
     private fun initModel() {
         when (useModel) {
             NANODET -> NanoDetPlus.init(assets, useGPU, threadsNumber)
             YOLOV5S -> YOLOv5s.init(assets, useGPU, threadsNumber)
         }
     }
-    //初始化界面
+    // Init the interface
     private fun initView() {
         binding.sbVideo.visibility = View.GONE
         binding.sbVideoSpeed.min = videoSpeedMin
@@ -254,7 +254,7 @@ class MainActivity : AppCompatActivity() {
         binding.sbVideoSpeed.visibility = View.GONE
         binding.btnBack.visibility = View.GONE
     }
-    //初始化界面响应程序
+    // Init the interface response
     private fun initViewListener() {
         binding.toolBar.setNavigationIcon(R.drawable.actionbar_dark_back_icon)
         binding.toolBar.setNavigationOnClickListener { finish() }
@@ -330,14 +330,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    //伴生对象，定义静态成员和静态方法
+    // Companion object
     companion object {
 //         Used to load the 'objdetection' library on application startup.
 //         init {
 //             System.loadLibrary("objdetection")
 //          }
         private const val TAG = "ObjDetection"
-//        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val REQUEST_CODE_PERMISSIONS = 10
     }
 
@@ -356,59 +355,45 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    //绑定生命周期对象
+    // Bind lifecycle object
     private fun bindPreview(
         cameraProvider: ProcessCameraProvider,
         previewView: PreviewView
     ) {
-        //设置PreviewView的实现模式为Texture View，避免一些问题(如setSurfaceProvider()后下方有黑边)
+        // Set Texture View for PreviewView mode
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
 
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-        // Image preview use case
-        val previewBuilder = Preview.Builder()
+        mPreview = Preview.Builder()
+            .build()
 
-        // Image capture use case
-        val captureBuilder = ImageCapture.Builder()
-             .setTargetRotation(previewView.display.rotation)
-
-        mPreview = previewBuilder.build()
-
-        mImageCapture = captureBuilder.build()
+        mImageCapture = ImageCapture.Builder()
+            .setTargetRotation(previewView.display.rotation)
+            .build()
 
         targetWidth = 640
         targetHeight = 480
-        val resolutionSelector = ResolutionSelector.Builder()
+
+        mResolutionSelector = ResolutionSelector.Builder()
             .setResolutionStrategy(ResolutionStrategy(Size(targetWidth, targetHeight), FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
-        mResolutionSelector = resolutionSelector.build()
+            .build()
 
         mImageAnalysis = ImageAnalysis.Builder()
-            // enable the following line if RGBA output is needed.
+            // Enable the following line if RGBA output is needed.
             // .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .setTargetRotation(previewView.display.rotation)
             .setResolutionSelector(mResolutionSelector)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
 
-        mImageAnalysis!!.setAnalyzer(cameraExecutor) { imageProxy ->
+        mImageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-            // insert your code here.
-//            detectService = Executors.newSingleThreadExecutor()
+            // Insert your code here.
             detectOnModel(imageProxy, rotationDegrees)
-            // after done, release the ImageProxy object
+            // After done, release the ImageProxy object
             imageProxy.close()
         }
-
-
-//******ImageAnalysis Function Test******//
-//         val mImageAnalysis = ImageAnalysis.Builder()
-//            .build()
-//            .also {
-//                it.setAnalyzer(cameraExecutor, DetectAnalyzer { luma ->
-//                    Log.d(TAG, "Average luminosity: $luma")
-//                })
-//            }
 
         cameraProvider.unbindAll()
         try {
@@ -427,29 +412,20 @@ class MainActivity : AppCompatActivity() {
         if (detectCamera.get() || detectPhoto.get() || detectVideo.get()) {
             return
         }
-//        *Test*
-//        Log.d(TAG, "rotationDegrees is: $rotationDegrees")
-//        val w = image.width
-//        val h = image.height
-//        Log.d(TAG, "Width is: $w")
-//        Log.d(TAG, "Height is: $h")
-        detectCamera.set(true)
-        startTime = System.currentTimeMillis()
-        val bitmapsrc = imageToBitmap(image) // 格式转换
         if (detectService == null) {
             detectCamera.set(false)
             return
         }
+        detectCamera.set(true)
+        startTime = System.currentTimeMillis()
+        val bitmapsrc = imageToBitmap(image) // format conversion
 
         detectService.execute {
             val matrix = Matrix()
-            //if (rotationDegrees == 90)
             matrix.postRotate(rotationDegrees.toFloat())
             width = bitmapsrc.width
             height = bitmapsrc.height
-
             val bitmap = Bitmap.createBitmap(bitmapsrc, 0, 0, width, height, matrix, false)
-
             detectAndDraw(bitmap)
             if(errorFlag == 1)
                 showResultOnUI()
@@ -527,11 +503,7 @@ class MainActivity : AppCompatActivity() {
         }
         else
         {
-//            Time1 = System.currentTimeMillis()
-//            val tim1 = Time1 - startTime
-//            Log.d(TAG, "time1 is: $tim1")
             mutableBitmap = drawBoxRects(image, result)
-
         }
 
         return mutableBitmap
@@ -547,11 +519,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun drawBoxRects(bitmap: Bitmap, results: Array<Box>?): Bitmap {
-        //if (results == null || results.size <= 0) {
-        if ((results == null) || results.isEmpty()) {
+
+        if (results.isNullOrEmpty()) {
             return bitmap
         }
-        //copy，否则出错(不允许直接操作bitmap)
+        // Copy，Bitmap cannot be modified directly.
         val bitmapCopy = bitmap.copy(Bitmap.Config.ARGB_8888, true)
 
         val canvas = Canvas(bitmapCopy)
@@ -587,10 +559,19 @@ class MainActivity : AppCompatActivity() {
             return
         }
         detectPhoto.set(true)
-        val image: Bitmap? = getPicture(data.data)
+        var image: Bitmap? = getPicture(data.data)
         if (image == null) {
             Toast.makeText(this, "Photo is null", Toast.LENGTH_SHORT).show()
             return
+        }
+
+        // Resize too large image
+        val MAX_BITMAP_SIZE = 100*1024*1024
+        if((image.width * image.height) > MAX_BITMAP_SIZE){
+            val ratio = width * height.toFloat() / MAX_BITMAP_SIZE
+            val finalWidth = width/ratio.toInt()
+            val finalHeight = height/ratio.toInt()
+            image = Bitmap.createScaledBitmap(image, finalWidth, finalHeight, true)
         }
 
         mCameraProvider.unbindAll()
@@ -608,18 +589,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 选取的图像太大(25000000这个上限值未求证),大概与内存有关
-        // e.g.:"Error: Canvas: trying to draw too large(108000000bytes) bitmap."
-        if((image.width * image.height) > 25000000){
-            Toast.makeText(this, "Photo is too large", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         val thread = Thread({
             val start = System.currentTimeMillis()
             val imageCopy = image.copy(Bitmap.Config.ARGB_8888, true)
             width = image.width
             height = image.height
+
             mutableBitmap = detectAndDraw(imageCopy)
             val dur = System.currentTimeMillis() - start
             runOnUiThread {
@@ -637,7 +612,6 @@ class MainActivity : AppCompatActivity() {
     private fun getPicture(selectedImage: Uri?): Bitmap? {
         val filePathColumn = arrayOf(MediaStore.Images.Media.DATA)
         val cursor: Cursor =
-            //   this.getContentResolver().query(selectedImage, filePathColumn, null, null, null)
             selectedImage?.let { this.contentResolver.query(it, filePathColumn, null, null, null) }
                 ?: return null
         cursor.moveToFirst()
@@ -700,10 +674,10 @@ class MainActivity : AppCompatActivity() {
             val cursor: Cursor? = uri?.let { contentResolver.query(it, null, null, null, null) }
             if (cursor != null) {
                 cursor.moveToFirst()
-                // String imgNo = cursor.getString(0); // 编号
-                val v_path = cursor.getString(1) // 文件路径
-//                val v_size = cursor.getString(2) // 大小
-//                val v_name = cursor.getString(3) // 文件名
+//                String imgNo = cursor.getString(0); // file ID
+                val v_path = cursor.getString(1) // file path
+//                val v_size = cursor.getString(2) // file size
+//                val v_name = cursor.getString(3) // file name
                 detectOnVideo(v_path)
             } else {
                 Toast.makeText(this, "Video is null", Toast.LENGTH_SHORT).show()
@@ -746,8 +720,8 @@ class MainActivity : AppCompatActivity() {
                 mmr!!.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_DURATION) // ms
             val sfps: String =
                 mmr!!.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_FRAMERATE) // fps
-            //                String sWidth = mmr.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);  // w
-            //                String sHeight = mmr.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);  // h
+//                String sWidth = mmr.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);  // w
+//                String sHeight = mmr.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);  // h
             val rota: String =
                 mmr!!.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION) // rotation
             val duration = dur.toInt()
@@ -799,9 +773,8 @@ class MainActivity : AppCompatActivity() {
 
         mmr?.release()
 
-       // analyzing = false
+//        analyzing = false
         mCameraProvider.unbindAll()
-        cameraExecutor.shutdown()
         if (cameraExecutor != null) {
             cameraExecutor.shutdown()
             cameraExecutor = null
@@ -810,81 +783,4 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
 
     }
-
-
-
-/*
-    /**
-     * letterbox (slow)
-     *
-     * @param srcBitmap
-     * @param srcWidth
-     * @param srcHeight
-     * @param dstWidth
-     * @param dstHeight
-     * @param matrix
-     * @return
-     */
-    fun letterbox(
-        srcBitmap: Bitmap?,
-        srcWidth: Int,
-        srcHeight: Int,
-        dstWidth: Int,
-        dstHeight: Int,
-        matrix: Matrix
-    ): Bitmap? {
-        val timeStart = System.currentTimeMillis()
-        val scale = Math.min(dstWidth.toFloat() / srcWidth, dstHeight.toFloat() / srcHeight)
-        val nw = (srcWidth * scale).toInt()
-        val nh = (srcHeight * scale).toInt()
-        matrix.postScale(nw.toFloat() / srcWidth, nh.toFloat() / srcHeight)
-        val bitmap = Bitmap.createBitmap(srcBitmap!!, 0, 0, srcWidth, srcHeight, matrix, false)
-        val newBitmap =
-            Bitmap.createBitmap(dstWidth, dstHeight, Bitmap.Config.ARGB_8888) //创建和目标相同大小的空Bitmap
-        val canvas = Canvas(newBitmap)
-        val paint = Paint()
-        // 针对绘制bitmap添加抗锯齿
-        val pfd = PaintFlagsDrawFilter(0, Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        paint.isFilterBitmap = false // 对Bitmap进行滤波处理
-        paint.isAntiAlias = true // 设置抗锯齿
-        canvas.drawFilter = pfd
-        canvas.drawBitmap(
-            bitmap, null,
-            Rect(
-                (dstHeight - nh) / 2, (dstWidth - nw) / 2,
-                (dstHeight - nh) / 2 + nh, (dstWidth - nw) / 2 + nw
-            ),
-            paint
-        )
-        val timeDur = System.currentTimeMillis() - timeStart
-        //        Log.d(TAG, "letterbox time:" + timeDur);
-        return newBitmap
-    }
-
-
-     */
 }
-
-//******ImageAnalysis Function Test******//
-//private class DetectAnalyzer(private val listener: LumaListener) : ImageAnalysis.Analyzer {
-//
-//
-//    private fun ByteBuffer.toByteArray(): ByteArray {
-//        rewind()    // Rewind the buffer to zero
-//        val data = ByteArray(remaining())
-//        get(data)   // Copy the buffer into a byte array
-//        return data // Return the byte array
-//    }
-//
-//    override fun analyze(image: ImageProxy) {
-//
-//        val buffer = image.planes[0].buffer
-//        val data = buffer.toByteArray()
-//        val pixels = data.map { it.toInt() and 0xFF }
-//        val luma = pixels.average()
-//
-//        listener(luma)
-//
-//        image.close()
-//    }
-//}
