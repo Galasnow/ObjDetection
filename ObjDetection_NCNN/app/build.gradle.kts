@@ -12,8 +12,8 @@ android {
         applicationId = "com.objdetection.ncnn"
         minSdk = 29
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.1"
+        versionCode = 7
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
@@ -47,14 +47,14 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            version = "3.30.5"
         }
     }
 
     buildFeatures {
         viewBinding = true
     }
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "27.2.12479018"
     buildToolsVersion = "35.0.0"
 }
 
@@ -70,13 +70,13 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 
     implementation("androidx.exifinterface:exifinterface:1.3.7")
-    implementation("androidx.activity:activity-ktx:1.9.0")
-    implementation("androidx.fragment:fragment-ktx:1.8.1")
+    implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("androidx.fragment:fragment-ktx:1.8.4")
 
     ksp("androidx.room:room-compiler:2.6.1")
 
     // CameraX core library using the camera2 implementation
-    val camerax_version = "1.4.0-beta02"
+    val camerax_version = "1.5.0-alpha02"
     // The following line is optional, as the core library is included indirectly by camera-camera2
     implementation("androidx.camera:camera-core:${camerax_version}")
     implementation("androidx.camera:camera-camera2:${camerax_version}")
